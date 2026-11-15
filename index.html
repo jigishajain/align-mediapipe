@@ -1,0 +1,131 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Align - Face Detection</title>
+  <style>
+    body {
+      font-family: Arial;
+      text-align: center;
+      background: #f4f7f3;
+      color: #244b38;
+    }
+
+    video {
+      width: 90%;
+      max-width: 500px;
+      border-radius: 16px;
+      transform: scaleX(-1);
+    }
+
+    button {
+      padding: 14px 24px;
+      background: #285b42;
+      color: white;
+      border: 0;
+      border-radius: 10px;
+      cursor: pointer;
+    }
+
+    #status {
+      margin: 20px;
+    }
+  </style>
+</head>
+
+<body>
+
+  <h1>Align</h1>
+  <p>MediaPipe Face Landmarker Test</p>
+
+  <button id="start">Start Camera</button>
+
+  <p id="status">Camera not started</p>
+
+  <video id="video" autoplay playsinline muted></video>
+
+  <script type="module">
+    import {
+      FaceLandmarker,
+      FilesetResolver
+    } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14";
+
+    const video = document.getElementById("video");
+    const status = document.getElementById("status");
+
+    let faceLandmarker;
+
+    async function setup() {
+      status.textContent = "Loading MediaPipe...";
+
+      const vision =
+        await FilesetResolver.forVisionTasks(
+          "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm"
+        );
+
+      faceLandmarker =
+        await FaceLandmarker.createFromOptions(
+          vision,
+          {
+            baseOptions: {
+              modelAssetPath:
+                "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task"
+            },
+            runningMode: "VIDEO",
+            numFaces: 1,
+            outputFacialTransformationMatrixes: true
+          }
+        );
+
+      status.textContent = "MediaPipe loaded!";
+    }
+
+    async function startCamera() {
+      try {
+        await setup();
+
+        const stream =
+          await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: "user" },
+            audio: false
+          });
+
+        video.srcObject = stream;
+
+        await video.play();
+
+        status.textContent = "Camera started!";
+
+        detectFace();
+
+      } catch (error) {
+        status.textContent = "Error: " + error.message;
+      }
+    }
+
+    function detectFace() {
+      if (video.readyState >= 2) {
+        const results =
+          faceLandmarker.detectForVideo(
+            video,
+            performance.now()
+          );
+
+        if (results.faceLandmarks.length > 0) {
+          status.textContent =
+            "Face detected! Landmarks: " +
+            results.faceLandmarks[0].length;
+        } else {
+          status.textContent = "No face detected";
+        }
+      }
+
+      requestAnimationFrame(detectFace);
+    }
+
+    document.getElementById("start")
+      .addEventListener("click", startCamera);
+  </script>
+
+</body>
+</html>
